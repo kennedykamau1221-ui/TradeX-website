@@ -1,0 +1,142 @@
+
+const n=x=>Number(x);
+export function ema(a,p){if(a.length<p)return[];let k=2/(p+1),e=a.slice(0,p).reduce((x,y)=>x+y,0)/p,o=Array(p-1).fill(null);o.push(e);for(let i=p;i<a.length;i++){e=a[i]*k+e*(1-k);o.push(e)}return o}
+export function rsi(a,p=14){if(a.length<=p)return[];let g=0,l=0;for(let i=1;i<=p;i++){let d=a[i]-a[i-1];g+=Math.max(d,0);l+=Math.max(-d,0)}let ag=g/p,al=l/p,o=Array(p).fill(null);o.push(al?100-100/(1+ag/al):100);for(let i=p+1;i<a.length;i++){let d=a[i]-a[i-1];ag=(ag*(p-1)+Math.max(d,0))/p;al=(al*(p-1)+Math.max(-d,0))/p;o.push(al?100-100/(1+ag/al):100)}return o}
+export function atr(c,p=14){if(c.length<=p)return[];let t=c.map((x,i)=>i?Math.max(n(x.high)-n(x.low),Math.abs(n(x.high)-n(c[i-1].close)),Math.abs(n(x.low)-n(c[i-1].close))):n(x.high)-n(x.low));let a=t.slice(0,p).reduce((x,y)=>x+y,0)/p,o=Array(p-1).fill(null);o.push(a);for(let i=p;i<t.length;i++){a=(a*(p-1)+t[i])/p;o.push(a)}return o}
+function piv(c){let hi=[],lo=[];for(let i=2;i<c.length-2;i++){let h=n(c[i].high),l=n(c[i].low),H=true,L=true;for(let j=i-2;j<=i+2;j++)if(j!==i){if(n(c[j].high)>=h)H=false;if(n(c[j].low)<=l)L=false}if(H)hi.push({i,p:h});if(L)lo.push({i,p:l})}return{hi,lo}}
+export function analyze(raw){let c=raw.map(x=>({...x,open:n(x.open),high:n(x.high),low:n(x.low),close:n(x.close)})),cl=c.map(x=>x.close),e20=ema(cl,20),e50=ema(cl,50),e200=ema(cl,200),R=rsi(cl),A=atr(c),p=piv(c),last=c.at(-1),h=p.hi.at(-1),ph=p.hi.at(-2),l=p.lo.at(-1),pl=p.lo.at(-2);let bias="RANGE";if(h&&ph&&l&&pl)bias=h.p>ph.p&&l.p>pl.p?"BULLISH":h.p<ph.p&&l.p<pl.p?"BEARISH":"RANGE";if(e20.at(-1)&&e50.at(-1)&&e200.at(-1))if(e20.at(-1)>e50.at(-1)&&e50.at(-1)>e200.at(-1))bias="BULLISH";else if(e20.at(-1)<e50.at(-1)&&e50.at(-1)<e200.at(-1))bias="BEARISH";let event=h&&last.close>h.p?"BOS_UP":l&&last.close<l.p?"BOS_DOWN":"NONE";let f=[],ob=[];for(let i=2;i<c.length;i++){if(c[i].low>c[i-2].high)f.push({type:"BULLISH_FVG",low:c[i-2].high,high:c[i].low});if(c[i].high<c[i-2].low)f.push({type:"BEARISH_FVG",low:c[i].high,high:c[i-2].low});let a=c[i-1],b=c[i];if(a.close<a.open&&b.close>b.open&&b.close>a.high)ob.push({type:"BULLISH_OB",low:a.low,high:a.high});if(a.close>a.open&&b.close<b.open&&b.close<a.low)ob.push({type:"BEARISH_OB",low:a.low,high:a.high})}let score=(bias==="BULLISH"?1:bias==="BEARISH"?-1:0)+(R.at(-1)>55?1:R.at(-1)<45?-1:0)+(event==="BOS_UP"?1:event==="BOS_DOWN"?-1:0);return{price:last.close,bias,event,recommendation:score>=2?"LONG BIAS":score<=-2?"SHORT BIAS":"WAIT / RANGE",score,indicators:{ema20:e20.at(-1),ema50:e50.at(-1),ema200:e200.at(-1),rsi14:R.at(-1),atr14:A.at(-1)},fvg:f.slice(-8),orderBlocks:ob.slice(-8),support:p.lo.slice(-5).map(x=>x.p),resistance:p.hi.slice(-5).map(x=>x.p),note:"Rule-based analysis; not a guarantee."}}
+{
+  "name": "tradex-pro",
+  "version": "4.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "android:add": "npx cap add android",
+    "android:sync": "npx cap sync android",
+    "android:open": "npx cap open android"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "@capacitor/core": "^7.4.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3"
+  }
+}TradeX Website — combined starter build
+Responsive website form for desktop and Android browsers. Includes a market dashboard, provider-backed quote/analysis endpoints, candlestick chart, technical-analysis summaries, a local demo-trading simulator, demo wallet request forms, and a protected administrator risk-settings panel.
+What works in this build
+Website UI: Overview, Markets, Trade, Wallet, Analysis and Admin sections.
+Provider-backed read-only quotes and candles for XAU/USD, EUR/USD, GBP/USD and BTC/USD when a valid Twelve Data API key is configured.
+RSI/EMA/structure/FVG/order-block summaries from the included analysis module.
+Demo trades use virtual funds and browser-local storage only.
+Deposit/withdrawal forms create local demo requests only; they do not process payments.
+MT5 bridge source is included for future integration/testing, but live trading is disabled by default.
+Run locally
+Install Node.js 20+.
+Copy .env.example to .env.
+Set a long random ADMIN_TOKEN and BRIDGE_TOKEN; add a valid TWELVE_DATA_API_KEY if you have one.
+For local use set PUBLIC_URL=http://localhost:8787 and ALLOWED_ORIGINS=http://localhost:8787 (or leave ALLOWED_ORIGINS blank for development).
+Run npm install then npm start.
+Open http://localhost:8787.
+Without a market-data API key, the website and demo simulator still open, but live quotes and candle analysis will show a setup message.
+Deploy as a website
+Deploy this Node.js project to a host that supports Node.js.
+Configure the environment variables from .env.example in the hosting dashboard.
+Set PUBLIC_URL to your HTTPS website address and ALLOWED_ORIGINS to that same origin.
+Use HTTPS, a strong admin/bridge token, protected server logs, backups, and a managed database before public production use.
+Keep .env, API keys, broker credentials and MT5 credentials out of source control and browser code.
+Trading and payment limits
+This is a website starter/prototype, not a licensed broker or a payment processor. Demo trades and wallet requests are browser-local and are not real financial transactions. Real deposits, withdrawals, customer accounts, synthetic indices and live orders require secure server-side account/ledger implementation, a suitable authorized provider, testing, and legal/regulatory review. Live MT5 execution remains disabled by default. Never use a simulated market as if it were a real provider market.
+MT5 bridge
+TradeXBridge.mq5 is included for controlled testing with MT5. Do not enable real trading until the bridge, broker permissions, risk controls, deployment security, and legal requirements have been independently reviewed. The administrator interface does not provide a function to secretly alter real market prices or manufacture customer losses.import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import crypto from 'crypto';
+import { analyze } from './analysis.js';
+
+dotenv.config();
+const app = express();
+const dir = path.dirname(fileURLToPath(import.meta.url));
+const PORT = Number(process.env.PORT || 8787);
+const HOST = process.env.HOST || '0.0.0.0';
+const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
+const BRIDGE_TOKEN = process.env.BRIDGE_TOKEN || '';
+const TD = process.env.TWELVE_DATA_API_KEY || '';
+const LIVE = process.env.LIVE_TRADING_ENABLED === 'true';
+const CONF = process.env.LIVE_CONFIRMATION || '';
+const DATA_FILE = path.join(dir, 'tradex-data.json');
+
+const allowedOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
+app.use(cors({origin(origin,cb){if(!origin||allowedOrigins.length===0||allowedOrigins.includes(origin))return cb(null,true);return cb(new Error('Origin not allowed'))}}));
+app.use(express.json({ limit: '256kb' }));
+const initial = { settings:{riskPercent:Number(process.env.DEFAULT_RISK_PERCENT||1),maxDailyLoss:Number(process.env.MAX_DAILY_LOSS_PERCENT||5),maxOpenTrades:Number(process.env.MAX_OPEN_TRADES||1),strategyEnabled:true}, mt5:{connected:false}, commands:[], trades:[], day:null };
+let S = load();
+function load(){ try{return {...initial,...JSON.parse(fs.readFileSync(DATA_FILE,'utf8'))}}catch{return structuredClone(initial)} }
+function save(){ fs.writeFileSync(DATA_FILE, JSON.stringify(S,null,2)); }
+function admin(req,res,next){ if(!ADMIN_TOKEN || req.get('x-admin-token')!==ADMIN_TOKEN) return res.status(401).json({error:'Unauthorized'}); next(); }
+function bridge(req,res,next){ if(!BRIDGE_TOKEN || req.get('x-bridge-token')!==BRIDGE_TOKEN) return res.status(401).json({error:'Unauthorized'}); next(); }
+function today(){return new Date().toISOString().slice(0,10)}
+function resetDayIfNeeded(){if(S.day?.date!==today()){S.day={date:today(),startEquity:S.mt5?.account?.equity||0,realized:0};save()}}
+async function td(ep,q={}){ if(!TD) throw Error('TWELVE_DATA_API_KEY missing'); q.apikey=TD; const r=await fetch('https://api.twelvedata.com/'+ep+'?'+new URLSearchParams(q)); const d=await r.json(); if(!r.ok||d.status==='error') throw Error(d.message||'Market-data error'); return d; }
+function normalizeSymbol(s){return String(s||'').replace('/','').replace('-','').toUpperCase()}
+function liveAllowed(){return LIVE && CONF==='TRADEX_LIVE_CONFIRM'}
+function openCount(){return Array.isArray(S.mt5.positions)?S.mt5.positions.length:0}
+function dailyLossPct(){resetDayIfNeeded(); const start=Number(S.day.startEquity||0), eq=Number(S.mt5?.account?.equity||0); return start>0 ? Math.max(0,(start-eq)/start*100) : 0}
+
+app.get('/api/health',(req,res)=>res.json({ok:true,marketData:!!TD,mt5:S.mt5.connected===true,live:liveAllowed(),url:PUBLIC_URL,time:new Date().toISOString()}));
+app.get('/api/config',(req,res)=>res.json({name:'TradeX Pro',url:PUBLIC_URL,protocol:PUBLIC_URL.startsWith('https://')?'https':'http'}));
+// Public, read-only market endpoints. Keep provider credentials on the server and restrict symbols/intervals.
+const marketSymbols = new Set(['XAU/USD','EUR/USD','GBP/USD','BTC/USD']);
+const marketIntervals = new Set(['1min','5min','15min','1h','4h','1day']);
+const hits = new Map();
+function marketRateLimit(req,res,next){
+ const key=req.ip||req.socket.remoteAddress||'unknown', now=Date.now(), prior=hits.get(key)||{start:now,count:0};
+ if(now-prior.start>60000){prior.start=now;prior.count=0} prior.count++; hits.set(key,prior);
+ if(prior.count>90)return res.status(429).json({error:'Market data request limit reached; try again shortly.'}); next();
+}
+app.get('/api/quote',marketRateLimit,async(req,res)=>{try{const symbol=String(req.query.symbol||'XAU/USD').toUpperCase();if(!marketSymbols.has(symbol))return res.status(400).json({error:'Unsupported market symbol'});res.set('Cache-Control','public, max-age=10');res.json(await td('quote',{symbol}))}catch(e){res.status(502).json({error:e.message})}});
+app.get('/api/analysis',marketRateLimit,async(req,res)=>{try{const symbol=String(req.query.symbol||'XAU/USD').toUpperCase(), interval=String(req.query.interval||'15min');if(!marketSymbols.has(symbol))return res.status(400).json({error:'Unsupported market symbol'});if(!marketIntervals.has(interval))return res.status(400).json({error:'Unsupported interval'});const d=await td('time_series',{symbol,interval,outputsize:250});const values=(d.values||[]).reverse();res.set('Cache-Control','public, max-age=15');res.json({symbol,interval,analysis:analyze(values),values:d.values||[]})}catch(e){res.status(502).json({error:e.message})}});
+app.get('/api/settings',admin,(req,res)=>{resetDayIfNeeded();res.json({...S.settings,mt5:S.mt5,live:liveAllowed(),dailyLossPct:dailyLossPct(),queued:S.commands.length})});
+app.post('/api/settings',admin,(req,res)=>{const x=req.body||{}; if(x.riskPercent!=null)S.settings.riskPercent=Math.max(.1,Math.min(5,Number(x.riskPercent))); if(x.maxDailyLoss!=null)S.settings.maxDailyLoss=Math.max(.5,Math.min(20,Number(x.maxDailyLoss))); if(x.maxOpenTrades!=null)S.settings.maxOpenTrades=Math.max(1,Math.min(20,Number(x.maxOpenTrades))); if(x.strategyEnabled!=null)S.settings.strategyEnabled=!!x.strategyEnabled; save(); res.json(S.settings)});
+app.get('/api/positions',admin,(req,res)=>res.json({positions:S.mt5.positions||[],account:S.mt5.account||null}));
+app.get('/api/trades',admin,(req,res)=>res.json(S.trades.slice(-100).reverse()));
+
+app.post('/api/order',admin,(req,res)=>{
+ const {symbol,side,volume,sl,tp}=req.body||{}; const vol=Number(volume), stop=Number(sl)||0, take=Number(tp)||0;
+ if(!symbol||!['BUY','SELL'].includes(side)||!Number.isFinite(vol)||vol<=0) return res.status(400).json({error:'Invalid order'});
+ if(vol>100) return res.status(400).json({error:'Volume exceeds safety limit'});
+ if(!S.settings.strategyEnabled) return res.status(403).json({error:'Strategy disabled'});
+ if(!S.mt5.connected) return res.status(409).json({error:'MT5 is not connected'});
+ if(openCount()>=S.settings.maxOpenTrades) return res.status(409).json({error:'Maximum open trades reached'});
+ if(dailyLossPct()>=S.settings.maxDailyLoss) return res.status(409).json({error:'Daily loss limit reached'});
+ const id=crypto.randomUUID(); const cmd={id,type:'ORDER',symbol:normalizeSymbol(symbol),side,volume:vol,sl:stop,tp:take,createdAt:new Date().toISOString()};
+ if(!liveAllowed()) return res.json({accepted:false,demo:true,message:'Safe mode: live execution is disabled.',command:cmd});
+ S.commands.push(cmd); save(); res.json({accepted:true,commandId:id,message:'Order queued for MT5 execution.'});
+});
+
+app.get('/api/mt5/commands',bridge,(req,res)=>{const commands=S.commands.splice(0,10); save(); res.json({commands})});
+app.post('/api/mt5/snapshot',bridge,(req,res)=>{S.mt5={...req.body,connected:true,updated:new Date().toISOString()}; resetDayIfNeeded(); save(); res.json({ok:true})});
+app.post('/api/mt5/result',bridge,(req,res)=>{const x=req.body||{}; S.trades.push({...x,receivedAt:new Date().toISOString()}); if(x.realized!=null){resetDayIfNeeded();S.day.realized+=Number(x.realized); } save(); res.json({ok:true})});
+app.post('/api/mt5/heartbeat',bridge,(req,res)=>{S.mt5.connected=true;S.mt5.updated=new Date().toISOString();save();res.json({ok:true})});
+app.use(express.static(path.join(dir,'public')));
+app.listen(PORT,HOST,()=>console.log(`TradeX Pro running at ${PUBLIC_URL}`));
+#!/bin/sh
+cd "$(dirname "$0")"
+npm install || exit 1
+(sleep 2; open http://localhost:8787 2>/dev/null || xdg-open http://localhost:8787 2>/dev/null || true) &
+npm start
+Website deployment quick guide
+Upload this project to a Node.js host or deploy the ZIP using the host's supported workflow.
+Configure environment variables from .env.example in the host dashboard. Do not upload a populated .env file.
+Set PUBLIC_URL=https://your-real-domain.example and ALLOWED_ORIGINS=https://your-real-domain.example.
+Add the provider market-data API key in the server environment.
+Confirm the site is served over HTTPS and test in mobile Chrome.
+Demo trading is local-only; deposits and withdrawals are request-form demos. Real-money services are not enabled by this package.
+The package cannot create a public domain or hosting account for you. You will need to deploy it to a hosting provider and attach a domain to obtain a permanent public website URL.
